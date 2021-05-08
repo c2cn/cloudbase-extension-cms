@@ -7,7 +7,6 @@ import { createUserRole, updateUserRole } from '@/services/role'
 import { Row, Col, Space, Typography, Steps, message, Card } from 'antd'
 import RolePermission from './RolePermission'
 import RoleInfo from './RoleInfo'
-import './index.less'
 
 const { Step } = Steps
 
@@ -37,10 +36,10 @@ export default (): React.ReactNode => {
   )
 
   return (
-    <Row className="role-create">
+    <Row className="pt-20">
       <Col flex="1 1 auto" />
-      <Col flex="0 0 1000px">
-        <div className="back" onClick={() => history.goBack()}>
+      <Col flex="0 0 1080px">
+        <div className="cursor-pointer" onClick={() => history.goBack()}>
           <Space align="center" style={{ marginBottom: '20px' }}>
             <LeftCircleTwoTone style={{ fontSize: '20px' }} />
             <h3 style={{ marginBottom: '0.2rem' }}>返回</h3>

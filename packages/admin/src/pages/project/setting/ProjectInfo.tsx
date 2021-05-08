@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
-import { useRequest, useParams, history } from 'umi'
+import { useRequest, history } from 'umi'
 import { getProject, updateProject, deleteProject } from '@/services/project'
 import { Divider, Button, Space, Typography, Form, Input, Skeleton, Modal, message } from 'antd'
+import { getProjectId } from '@/utils'
 
 const ProjectDangerAction: React.FC<{ project: Project }> = ({ project }) => {
-  const { projectId } = useParams<any>()
+  const projectId = getProjectId()
   const [modalVisible, setModalVisible] = useState(false)
   const [projectName, setProjectName] = useState('')
 
@@ -66,7 +67,7 @@ const ProjectDangerAction: React.FC<{ project: Project }> = ({ project }) => {
 }
 
 export default (): React.ReactElement => {
-  const { projectId } = useParams<any>()
+  const projectId = getProjectId()
   const [reload, setReload] = useState(0)
   const [changed, setChanged] = useState(false)
   const { data: project, loading } = useRequest<{ data: Project }>(() => getProject(projectId), {
@@ -109,7 +110,7 @@ export default (): React.ReactElement => {
           }
         }}
       >
-        <Form.Item label="项目 Id">
+        <Form.Item label="项目 ID">
           <Typography.Paragraph copyable>{project?._id}</Typography.Paragraph>
         </Form.Item>
         <Form.Item
@@ -117,11 +118,11 @@ export default (): React.ReactElement => {
           name="name"
           rules={[{ required: true, message: '请输入项目名！' }]}
         >
-          <Input placeholder="项目名，如个人博客" />
+          <Input placeholder="项目名，如官网" />
         </Form.Item>
 
         <Form.Item label="项目介绍" name="description">
-          <Input placeholder="项目介绍，如我的个人博客" />
+          <Input placeholder="项目介绍，如官网内容管理" />
         </Form.Item>
 
         <Form.Item>

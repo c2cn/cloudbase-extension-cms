@@ -1,8 +1,10 @@
-import { useParams } from 'umi'
+import { useRequest } from 'umi'
 import React, { useRef } from 'react'
 import { PageContainer } from '@ant-design/pro-layout'
-import ProTable, { ProColumns } from '@ant-design/pro-table'
-import { getMigrateJobs } from '@/services/content'
+import ProTable, { ActionType, ProColumns } from '@ant-design/pro-table'
+import { getMigrateJobs, parseJsonLinesFile } from '@/services/content'
+import { downloadFile, downloadFileFromUrl, getFileNameFromUrl, getProjectId } from '@/utils'
+import { Button, message } from 'antd'
 
 const StatusMap = {
   waiting: '等待中',
@@ -14,7 +16,7 @@ const StatusMap = {
 }
 
 interface MigrateJobDto {
-  // 项目 Id
+  // 项目 ID
   projectId: string
 
   // 任务 Id
@@ -33,12 +35,25 @@ interface MigrateJobDto {
   // 任务状态
   // waiting：等待中，reading：读，writing：写，migrating：转移中，success：成功，fail：失败
   status: string
+
+  //
+  jobType: 'export' | 'import'
+
+  // 文件临时下载地址
+  fileUrl: string
 }
 
 const MigrateJobColumns: ProColumns<MigrateJobDto>[] = [
   {
     title: 'JobId',
     dataIndex: 'jobId',
+  },
+  {
+    title: '任务类型',
+    dataIndex: 'jobType',
+    render: (_, row) => {
+      return row.jobType === 'export' ? '导入数据' : '导出数据'
+    },
   },
   {
     title: '处理冲突模式',
@@ -49,7 +64,7 @@ const MigrateJobColumns: ProColumns<MigrateJobDto>[] = [
     dataIndex: 'collectionName',
   },
   {
-    width: '200px',
+    width: 200,
     title: '创建时间',
     dataIndex: 'createTime',
     valueType: 'dateTime',
@@ -59,6 +74,49 @@ const MigrateJobColumns: ProColumns<MigrateJobDto>[] = [
     dataIndex: 'collections',
     render: (_, row) => StatusMap[row.status],
   },
+  {
+    title: '操作',
+    width: 200,
+    fixed: 'right',
+    valueType: 'option',
+    render: (_, row) => {
+      if (row.jobType !== 'export') {
+        return '-'
+      }
+
+      const { run: download, loading } = useRequest(
+        async () => {
+          const projectId = getProjectId()
+          // JSON 格式
+          if (/\.json$/.test(row.filePath)) {
+            const { data: fileID } = await parseJsonLinesFile(projectId, row.fileUrl)
+            await downloadFile(fileID)
+          } else {
+            await downloadFileFromUrl(row.fileUrl, `${getFileNameFromUrl(row.fileUrl)}`)
+          }
+          message.success('文件开始下载')
+        },
+        {
+          manual: true,
+        }
+      )
+
+      return [
+        <Button
+          key="edit"
+          size="small"
+          type="primary"
+          loading={loading}
+          disabled={row.status !== 'success'}
+          onClick={() => {
+            download()
+          }}
+        >
+          下载文件
+        </Button>,
+      ]
+    },
+  },
 ]
 
 const columns: ProColumns<MigrateJobDto>[] = MigrateJobColumns.map((item) => ({
@@ -67,15 +125,9 @@ const columns: ProColumns<MigrateJobDto>[] = MigrateJobColumns.map((item) => ({
 }))
 
 export default (): React.ReactNode => {
-  const { projectId } = useParams<any>()
+  const projectId = getProjectId()
 
-  const tableRef = useRef<{
-    reload: (resetPageIndex?: boolean) => void
-    reloadAndRest: () => void
-    fetchMore: () => void
-    reset: () => void
-    clearSelected: () => void
-  }>()
+  const tableRef = useRef<ActionType>()
 
   // 获取 jobs
   const tableRequest = async (
@@ -115,7 +167,7 @@ export default (): React.ReactNode => {
         defaultData={[]}
         actionRef={tableRef}
         dateFormatter="string"
-        scroll={{ x: 1200 }}
+        scroll={{ x: 'max-content' }}
         request={tableRequest}
         pagination={{
           showSizeChanger: true,

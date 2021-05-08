@@ -1,5 +1,5 @@
 import _ from 'lodash'
-import { useRequest, useParams } from 'umi'
+import { useRequest } from 'umi'
 import { useSetState } from 'react-use'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { getProject, updateProject } from '@/services/project'
@@ -19,7 +19,7 @@ import {
 } from 'antd'
 import { useConcent } from 'concent'
 import { ContentCtx } from 'typings/store'
-import { copyToClipboard } from '@/utils'
+import { copyToClipboard, getProjectId } from '@/utils'
 import { CopyOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 
 const { Text } = Typography
@@ -29,7 +29,7 @@ const ApiAccessPath: React.FC<{ project: Project; onReload: Function }> = ({
   onReload,
 }) => {
   const accessDomain = window.TcbCmsConfig.cloudAccessPath.replace('tcb-ext-cms-service', '')
-  const { projectId } = useParams<any>()
+  const projectId = getProjectId()
   const [state, setState] = useSetState({
     apiPath: '',
     modalVisible: false,
@@ -101,7 +101,11 @@ const ApiAccessPath: React.FC<{ project: Project; onReload: Function }> = ({
           ]}
         >
           <Input
-            addonBefore={`https://${accessDomain}`}
+            addonBefore={
+              <Text ellipsis style={{ maxWidth: '400px' }}>
+                {`https://${accessDomain}`}
+              </Text>
+            }
             placeholder="API 访问的路径，如 rest-api"
           />
         </Form.Item>
@@ -158,8 +162,9 @@ const ApiPermission: React.FC<{ project: Project; onReload: Function }> = ({
   project,
   onReload,
 }) => {
-  const accessDomain = window.TcbCmsConfig.cloudAccessPath.replace('tcb-ext-cms-service', '')
-  const { projectId } = useParams<any>()
+  const accessDomain = window.TcbCmsConfig.cloudAccessPath.replace(/(tcb|wx)-ext-cms-service/, '')
+
+  const projectId = getProjectId()
   // 使用 content module 的数据，获取 layout 时，必然被加载、刷新
   const {
     state: { schemas },
@@ -242,11 +247,12 @@ const ApiPermission: React.FC<{ project: Project; onReload: Function }> = ({
             {initialValues.path && (
               <Button
                 type="link"
-                onClick={() =>
+                onClick={() => {
                   copyToClipboard(
                     `https://${accessDomain}${initialValues.path}/v1.0/${schema.collectionName}`
                   )
-                }
+                  message.success('复制成功')
+                }}
               >
                 复制访问链接
                 <CopyOutlined className="ml-2" />
@@ -264,7 +270,7 @@ const ApiPermission: React.FC<{ project: Project; onReload: Function }> = ({
 }
 
 export default (): React.ReactElement => {
-  const { projectId } = useParams<any>()
+  const projectId = getProjectId()
   const [reloadFlag, setReloadFlag] = useState(0)
   // 重新加载 project 信息
   const reload = useCallback(() => setReloadFlag(reloadFlag + 1), [reloadFlag])

@@ -1,19 +1,5 @@
 import { tcbRequest } from '@/utils'
 
-export async function query() {
-  return tcbRequest<API.CurrentUser[]>('/users')
-}
-
-export async function queryCurrent() {
-  return tcbRequest<API.CurrentUser>('/auth/currentUser', {
-    method: 'POST',
-  })
-}
-
-export async function queryNotices(): Promise<any> {
-  return tcbRequest<{ data: API.NoticeIconData[] }>('/notices')
-}
-
 export const getUsers = async (page = 1, pageSize = 10) => {
   return tcbRequest('/user', {
     method: 'GET',

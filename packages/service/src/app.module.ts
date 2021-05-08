@@ -1,32 +1,28 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
-import { AppController } from '@/app.controller'
-import { AppService } from '@/app.service'
 import { BodySerialize } from '@/middlewares/converter.middleware'
-import { FileModule } from './modules/file/file.module'
-import { AuthModule } from './modules/auth/auth.module'
 import { ProjectsModule } from './modules/projects/projects.module'
 import { UserModule } from './modules/user/user.module'
 import { RoleModule } from './modules/role/role.module'
 import { SettingModule } from './modules/setting/setting.module'
+import { ApisModule } from './modules/apis/apis.module'
 import { GlobalModule } from './global.module'
 
 @Module({
   imports: [
+    ApisModule,
     GlobalModule,
-    AuthModule,
-    FileModule,
     UserModule,
     ProjectsModule,
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: process.env.NODE_ENV === 'development' ? '.env.local' : '.env',
+      envFilePath: 'WX' in process.env ? '.env.wx.local' : '.env.local',
     }),
     RoleModule,
     SettingModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [],
+  providers: [],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

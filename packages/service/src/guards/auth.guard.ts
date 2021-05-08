@@ -10,7 +10,10 @@ import {
   Injectable,
 } from '@nestjs/common'
 
-// 校验用户是否登录，是否存在
+/**
+ * 1. 校验用户是否登录
+ * 2. 校验登录的用户是否为 CMS 用户
+ */
 @Injectable()
 export class GlobalAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -28,8 +31,8 @@ export class GlobalAuthGuard implements CanActivate {
 
       // request.cmsUser = {
       //     _id: 'test',
-      //     roles: [SYSTEM_ROLE_IDS.ADMIN],
-      //     username: 'admin',
+      //     roles: [SYSTEM_ROLE_IDS.OPERATOR],
+      //     username: 'operator',
       //     createTime: 2020,
       //     uuid: 'xxx'
       // }
@@ -52,7 +55,8 @@ export class GlobalAuthGuard implements CanActivate {
     let { userInfo } = await app.auth().getEndUserInfo(TCB_UUID)
 
     // 根据 credential 信息获取用户身份
-    if (request.path === `${config.globalPrefix}/upload` || isRunInServerMode()) {
+    const uploadPaths = [`${config.globalPrefix}/upload`, `${config.globalPrefix}/upload/hosting`]
+    if (uploadPaths.includes(request.path) || isRunInServerMode()) {
       const { headers } = request
       const credentials = headers['x-cloudbase-credentials'] as string
       if (credentials) {

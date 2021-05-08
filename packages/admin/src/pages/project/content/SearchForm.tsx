@@ -17,9 +17,9 @@ import {
 import { IDatePicker, IConnectEditor } from '@/components/Fields'
 import { useConcent } from 'concent'
 import { ContentCtx } from 'typings/store'
-import { calculateFieldWidth } from '@/utils'
+import { calculateFieldWidth, getProjectId } from '@/utils'
 import { updateSchema } from '@/services/schema'
-import { useParams, useRequest } from 'umi'
+import { useRequest } from 'umi'
 
 const { Option } = Select
 
@@ -37,7 +37,7 @@ const ContentTableSearchForm: React.FC<{
   onSearch: (v: Record<string, any>) => void
 }> = ({ schema, onSearch }) => {
   const [form] = Form.useForm()
-  const { projectId } = useParams<any>()
+  const projectId = getProjectId()
   const ctx = useConcent<{}, ContentCtx>('content')
   const { searchFields, searchParams } = ctx.state
 
@@ -117,8 +117,15 @@ const ContentTableSearchForm: React.FC<{
                 <Button
                   type="primary"
                   onClick={() => {
-                    form.resetFields()
-                    onSearch({})
+                    ctx.setState(
+                      {
+                        searchParams: {},
+                      },
+                      () => {
+                        form.resetFields()
+                        onSearch({})
+                      }
+                    )
                   }}
                 >
                   重置搜索

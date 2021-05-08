@@ -1,15 +1,16 @@
 import React from 'react'
 import { GithubOutlined } from '@ant-design/icons'
 import { DefaultFooter } from '@ant-design/pro-layout'
-import { getCmsConfig } from '@/utils'
+import { getCmsConfig, getYear } from '@/utils'
+import pkg from '../../../package.json'
 
 export default () => (
   <DefaultFooter
-    copyright={`2020 ${getCmsConfig('appName')}`}
+    copyright={`2020-${getYear()} ${getCmsConfig('appName')}`}
     links={[
       {
         key: getCmsConfig('cmsTitle'),
-        title: getCmsConfig('cmsTitle'),
+        title: `${getCmsConfig('cmsTitle')} - ${pkg.version}`,
         href: WX_MP
           ? 'https://developers.weixin.qq.com/miniprogram/dev/wxcloud/guide/extensions/cms/introduction.html'
           : getCmsConfig('officialSiteLink'),

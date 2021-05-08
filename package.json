@@ -1,9 +1,9 @@
 {
   "name": "cloudbase-cms",
-  "version": "2.6.2",
+  "version": "2.10.0",
   "private": true,
   "scripts": {
-    "dev": "lerna run dev",
+    "dev": "lerna run dev --stream",
     "build": "lerna run build --stream",
     "build:wx": "cross-env WX_MP=true lerna run build --stream",
     "build:server": "cross-env SERVER_MODE=true lerna run build --stream",
@@ -39,7 +39,7 @@
     "eslint-formatter-pretty": "~4.0.0",
     "eslint-plugin-react": "~7.20.3",
     "husky": "^4.2.5",
-    "lerna": "^3.22.1",
+    "lerna": "^4.0.0",
     "lint-staged": "^10.2.11",
     "prettier": "^2.0.5",
     "typescript": "^3.9.7"

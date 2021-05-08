@@ -1,10 +1,21 @@
+import { getState } from 'concent'
 import { request, history } from 'umi'
-import { message, notification } from 'antd'
+import { notification } from 'antd'
 import { RequestOptionsInit } from 'umi-request'
-import { codeMessage } from '@/constants'
+import { uploadFilesToHosting } from '@/services/apis'
+import { codeMessage, RESOURCE_PREFIX } from '@/constants'
 import defaultSettings from '../../config/defaultSettings'
-import { isDevEnv, random } from './tool'
-import { getFullDate } from './date'
+import { isDevEnv, random } from './common'
+import { getDay, getFullDate, getMonth, getYear } from './date'
+import { downloadFileFromUrl } from './file'
+import { templateCompile } from './templateCompile'
+
+interface IntegrationRes {
+  statusCode: number
+  headers: Record<string, string>
+  body: string
+  isBase64Encoded: true | false
+}
 
 let app: any
 let auth: any
@@ -18,14 +29,46 @@ export async function getCloudBaseApp() {
   const loginState = await auth.getLoginState()
 
   if (!loginState && !isDevEnv()) {
-    message.error('您还没有登录或登录已过期，请登录后再操作！')
     history.push('/login')
   }
 
   return app
 }
 
-// 初始化 app 实例
+let wxCloudApp: any
+
+/**
+ * 处理微信 Web SDK 的登录
+ */
+export function getWxCloudApp() {
+  // 全局 state
+  const state: any = getState()
+  const { envId, mpAppID } = window.TcbCmsConfig || {}
+  const miniappID = mpAppID || state?.global?.setting?.miniappID
+
+  if (!wxCloudApp) {
+    // 声明新的 cloud 实例
+    wxCloudApp = new window.cloud.Cloud({
+      // 必填，表示是未登录模式
+      identityless: true,
+      // 资源方环境 ID
+      resourceEnv: envId,
+      // 资源方 AppID
+      resourceAppid: miniappID,
+    })
+
+    wxCloudApp.init({
+      env: envId,
+      appid: miniappID,
+    })
+  }
+
+  return wxCloudApp
+}
+
+/**
+ * 初始化云开发 app、auth 实例
+ */
 function initCloudBaseApp() {
   if (!app) {
     const { envId } = window.TcbCmsConfig || {}
@@ -43,12 +86,27 @@ function initCloudBaseApp() {
   }
 }
 
-// 用户名密码登录
+/**
+ * 用户名密码登录
+ * @param username
+ * @param password
+ */
 export async function loginWithPassword(username: string, password: string) {
   // 登陆
   await auth.signInWithUsernameAndPassword(username, password)
 }
 
+/**
+ * 获取当前登录态信息
+ */
+export async function getLoginState() {
+  // 获取登录态
+  return auth.getLoginState()
+}
+
+/**
+ * 同步获取 x-cloudbase-credentials
+ */
 export function getAuthHeader() {
   return auth.getAuthHeader()
 }
@@ -56,7 +114,7 @@ export function getAuthHeader() {
 let gotAuthHeader = false
 let gotAuthTime = 0
 /**
- * 获取 x-cloudbase-credentials 请求 Header
+ * 异步获取 x-cloudbase-credentials 请求 Header
  */
 export async function getAuthHeaderAsync() {
   // 直接读取本地
@@ -81,7 +139,9 @@ export async function logout() {
   await auth.signOut()
 }
 
-// 兼容本地开发与云函数请求
+/**
+ * 兼容本地开发与云函数请求
+ */
 export async function tcbRequest<T = any>(
   url: string,
   options: RequestOptionsInit & { skipErrorHandler?: boolean } = {}
@@ -93,7 +153,7 @@ export async function tcbRequest<T = any>(
   const { method, params, data } = options
   const app = await getCloudBaseApp()
 
-  const functionName = WX_MP ? 'wx-ext-cms-service' : 'tcb-ext-cms-service'
+  const functionName = `${RESOURCE_PREFIX}-service`
 
   const res = await app.callFunction({
     parse: true,
@@ -114,17 +174,63 @@ export async function tcbRequest<T = any>(
     // throw new Error('服务异常')
   }
 
+  return parseIntegrationRes(res.result)
+}
+
+/**
+ * 调用微信 Open API
+ * @param action 行为
+ * @param data POST body 数据
+ */
+export async function callWxOpenAPI(action: string, data?: Record<string, any>) {
+  console.log(`callWxOpenAPI 参数`, data)
+
+  if (isDevEnv()) {
+    return request(`/api/${action}`, {
+      data,
+      prefix: 'http://127.0.0.1:5003',
+      method: 'POST',
+    })
+  }
+
+  const wxCloudApp = getWxCloudApp()
+
+  // 添加 authHeader
+  const authHeader = getAuthHeader()
+
+  const functionName = `${RESOURCE_PREFIX}-openapi`
+
+  // 调用 open api
+  const { result } = await wxCloudApp.callFunction({
+    name: functionName,
+    data: {
+      body: data,
+      headers: authHeader,
+      httpMethod: 'POST',
+      queryStringParameters: '',
+      path: `/api/${action}`,
+    },
+  })
+
+  return parseIntegrationRes(result)
+}
+
+/**
+ * 解析函数集成响应
+ */
+function parseIntegrationRes(result: IntegrationRes) {
   // 转化响应值
   let body
   try {
-    body = typeof res.result.body === 'string' ? JSON.parse(res.result.body) : res.result.body
+    body =
+      typeof result.body === 'string' && result.body?.length ? JSON.parse(result.body) : result.body
   } catch (error) {
-    body = res.result.body
     console.log(error)
+    body = result.body
   }
 
   if (body?.error) {
-    const errorText = codeMessage[res.result?.statusCode || 500]
+    const errorText = codeMessage[result?.statusCode || 500]
     notification.error({
       message: errorText,
       description: `请求错误：【${body.error.code}】: ${body.error.message}`,
@@ -135,12 +241,53 @@ export async function tcbRequest<T = any>(
   return body
 }
 
-// 上传文件
-export async function uploadFile(
-  file: File,
-  onProgress: (v: number) => void,
+/**
+ * 上传文件到文件存储、静态托管
+ */
+export async function uploadFile(options: {
+  /**
+   * 需要上传的文件
+   */
+  file: File
+
+  /**
+   * 指定上传文件的路径
+   */
   filePath?: string
-): Promise<string> {
+
+  /**
+   * 文件名随机的长度
+   */
+  filenameLength?: number
+
+  /**
+   * 进度事件
+   */
+  onProgress?: (v: number) => void
+  /**
+   * 文件上传存储类型，静态网站托管或云存储
+   * 默认为 storage
+   */
+  uploadType?: 'hosting' | 'storage'
+
+  /**
+   * 路径模版，根据模版规则做动态替换
+   * 以 cloudbase-cms 为基础路径
+   */
+  filePathTemplate?: string
+}): Promise<{
+  fileId: string
+  url: string
+}> {
+  const {
+    file,
+    onProgress,
+    filePath,
+    uploadType = 'storage',
+    filenameLength = 32,
+    filePathTemplate,
+  } = options
+
   const app = await getCloudBaseApp()
   const day = getFullDate()
 
@@ -150,29 +297,71 @@ export async function uploadFile(
     ext = file.name.split('.').pop()
     ext = `.${ext}`
   } else {
-    ext = file.name
+    ext = ''
   }
 
-  const uploadFilePath = filePath || `upload/${day}/${random(32)}_${ext}`
+  // 模版变量
+  const templateData: any = {
+    // 文件扩展
+    ext,
+    // 文件名
+    filename: file.name,
+    // 今日日期
+    date: day,
+    // 年份，如 2021
+    year: getYear(),
+    // 月份，如 03
+    month: getMonth(),
+    // 日，如 02
+    day: getDay(),
+  }
 
+  // 添加 random1 到 random64
+  for (let i = 1; i <= 64; i++) {
+    templateData[`random${i}`] = random(i)
+  }
+
+  let uploadFilePath: string
+
+  // 路径模版优先级最高
+  if (filePathTemplate) {
+    uploadFilePath = 'cloudbase-cms/' + templateCompile(filePathTemplate, templateData)
+  } else {
+    uploadFilePath = filePath || `cloudbase-cms/upload/${day}/${random(filenameLength)}_${ext}`
+  }
+
+  // 上传文件到静态托管
+  if (uploadType === 'hosting') {
+    // 返回 URL 信息数组
+    const ret = await uploadFilesToHosting(file, uploadFilePath)
+    onProgress?.(100)
+    return ret[0].url
+  }
+
+  // 上传文件到云存储
   const result = await app.uploadFile({
     filePath: file,
-    cloudPath: `cloudbase-cms/${uploadFilePath}`,
+    cloudPath: uploadFilePath,
     onUploadProgress: (progressEvent: ProgressEvent) => {
       const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-      onProgress(percentCompleted)
+      onProgress?.(percentCompleted)
     },
   })
 
+  const meta = {
+    fileId: result.fileID,
+    url: result.download_url,
+  }
+
   // 文件 id
-  return result.fileID
+  return meta
 }
 
 // 获取文件的临时访问链接
-export async function getTempFileURL(fileId: string): Promise<string> {
+export async function getTempFileURL(fileID: string): Promise<string> {
   const app = await getCloudBaseApp()
   const result = await app.getTempFileURL({
-    fileList: [fileId],
+    fileList: [fileID],
   })
 
   if (result.fileList[0].code !== 'SUCCESS') {
@@ -209,16 +398,18 @@ export async function batchGetTempFileURL(
 }
 
 // 下载文件
-export async function downloadFile(fileId: string) {
-  const app = await getCloudBaseApp()
+export async function downloadFile(fileID: string) {
+  const tmpUrl = await getTempFileURL(fileID)
+  const fileUrl =
+    tmpUrl + `${tmpUrl.includes('?') ? '&' : '?'}response-content-disposition=attachment`
+  const fileName = decodeURIComponent(new URL(fileUrl).pathname.split('/').pop() || '')
 
-  const result = await app.downloadFile({
-    fileID: fileId,
-  })
-
-  console.log('下载文件', fileId, result)
+  downloadFileFromUrl(fileUrl, fileName)
 }
 
+/**
+ * 判断一个 URL 是否为 FileId
+ */
 export const isFileId = (v: string) => /^cloud:\/\/\S+/.test(v)
 
 export const getFileNameFromUrl = (url: string) => {
@@ -227,22 +418,23 @@ export const getFileNameFromUrl = (url: string) => {
     const pathname = urlObj.pathname || ''
     return pathname.split('/').pop()
   } catch (error) {
-    return ''
+    // 直接 split
+    return url.split('/').pop() || ''
   }
 }
 
-export function fileIdToUrl(fileId: string) {
-  if (!fileId) {
+export function fileIdToUrl(fileID: string) {
+  if (!fileID) {
     return ''
   }
 
   // 非 fileId
-  if (!/^cloud:\/\//.test(fileId)) {
-    return fileId
+  if (!/^cloud:\/\//.test(fileID)) {
+    return fileID
   }
 
   // cloudId: cloud://cms-demo.636d-cms-demo-1252710547/cloudbase-cms/upload/2020-09-15/Psa3R3NA4rubCd_R-favicon-wx.svg
-  let link = fileId.replace('cloud://', '')
+  let link = fileID.replace('cloud://', '')
   // 文件路径
   const index = link.indexOf('/')
   // envId.bucket
@@ -267,4 +459,15 @@ export function fileIdToUrl(fileId: string) {
   }
 
   return `https://${trimBucket}.tcb.qcloud.la/${path}`
+}
+
+/**
+ * 获取 HTTP 访问地址
+ */
+export const getHttpAccessPath = () => {
+  return isDevEnv()
+    ? defaultSettings.globalPrefix
+    : SERVER_MODE
+    ? `https://${window.TcbCmsConfig.containerAccessPath}${defaultSettings.globalPrefix}`
+    : `https://${window.TcbCmsConfig.cloudAccessPath}${defaultSettings.globalPrefix}`
 }

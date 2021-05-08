@@ -1,9 +1,10 @@
+import Util from 'util'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import { Injectable } from '@nestjs/common'
 import { CloudBaseService } from '@/services'
-import { randomId } from '@/utils'
-import { IFile } from './types'
+import { getCloudBaseManager, randomId } from '@/utils'
+import { getCosApp } from '@/utils/cos'
 
 // 本地时间
 dayjs.locale('zh-cn')
@@ -66,5 +67,31 @@ export class FileService {
       return prev
     }, {})
     return dataFormat(data)
+  }
+
+  /**
+   * 上传文件到静态网站托管
+   */
+  async uploadFileToHosting(file: IFile, filePath: string) {
+    // 使用 COS SDK 上传文件到静态网站托管
+    const managerApp = await getCloudBaseManager()
+    const cos = await getCosApp()
+    const putObject = Util.promisify(cos.putObject).bind(cos)
+    const hosting = await managerApp.hosting.getInfo()
+    const { Bucket, Regoin, CdnDomain } = hosting[0]
+
+    // 上传文件
+    await putObject({
+      Bucket,
+      Region: Regoin,
+      Key: filePath,
+      StorageClass: 'STANDARD',
+      ContentLength: file.size,
+      Body: file.buffer,
+    })
+
+    return {
+      url: `https://${CdnDomain}/${filePath}`,
+    }
   }
 }

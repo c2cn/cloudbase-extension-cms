@@ -1,24 +1,29 @@
 import Axios from 'axios'
 import request from 'request'
-import cloudbase from '@cloudbase/node-sdk'
+import cloudbase, { CloudBase, ICallFunctionRes } from '@cloudbase/node-sdk'
 import CloudBaseManager from '@cloudbase/manager-node'
 import { ICloudBaseConfig } from '@cloudbase/node-sdk/lib/type'
 import { Collection } from '@/constants'
 import { isDevEnv } from './tools'
 import { MemoryCache } from './cache'
 import { getUnixTimestamp } from './date'
-import { logger } from './log'
 
-let nodeApp
+let nodeApp: CloudBase
 let managerApp
 let secretExpire: number
 let secretManager: SecretManager
+
+/**
+ * 内存缓存
+ */
 const schemaCache = new MemoryCache()
 
-// 从环境变量中获取 envId
+/**
+ * 从环境变量中获取 envId
+ */
 export const getEnvIdString = (): string => {
-  const { TCB_ENV, SCF_NAMESPACE, TCB_ENVID } = process.env
-  return TCB_ENV || SCF_NAMESPACE || TCB_ENVID
+  const { TCB_ENV, SCF_NAMESPACE, TCB_ENVID, ENV_ID } = process.env
+  return TCB_ENV || SCF_NAMESPACE || TCB_ENVID || ENV_ID
 }
 
 /**
@@ -89,6 +94,18 @@ export const getCloudBaseManager = async (): Promise<CloudBaseManager> => {
 }
 
 /**
+ * 调用云函数
+ */
+export const callFunction = async (functionName: string, data: any): Promise<ICallFunctionRes> => {
+  const app = getCloudBaseApp()
+
+  return app.callFunction({
+    data,
+    name: functionName,
+  })
+}
+
+/**
  * 从 credential header 中获取用户信息
  */
 export const getUserFromCredential = async (credential: string, origin: string) => {
@@ -102,7 +119,7 @@ export const getUserFromCredential = async (credential: string, origin: string) 
     headers: {
       origin,
       'content-type': 'application/json',
-      'x-sdk-version': '@cloudbase/js-sdk/1.3.4-alpha.0',
+      'x-sdk-version': '@cloudbase/js-sdk/1.4.0',
       'x-tcb-region': region,
     },
     data: {
@@ -114,7 +131,7 @@ export const getUserFromCredential = async (credential: string, origin: string) 
   })
 
   if (res.data?.code || !res.data?.uuid) {
-    logger.error(res.data, '获取用户信息失败')
+    console.error('获取用户信息失败', res.data)
     return null
   }
 
@@ -122,7 +139,7 @@ export const getUserFromCredential = async (credential: string, origin: string) 
 }
 
 /**
- * 获取集合的 Schema
+ * 获取并缓存集合对应 Schema
  */
 export async function getCollectionSchema(collection: string): Promise<Schema>
 export async function getCollectionSchema(): Promise<Schema[]>
@@ -174,7 +191,7 @@ export const isRunInServerMode = () =>
   !!process.env.KUBERNETES_SERVICE_HOST
 
 // 是否在云函数中运行
-export const isInSCF = () => process.env.TENCENTCLOUD_RUNENV === 'scf'
+export const isInSCF = () => process.env.TENCENTCLOUD_RUNENV === 'SCF'
 
 // 是否在云托管中运行
 export const isRunInContainer = () => !!process.env.KUBERNETES_SERVICE_HOST

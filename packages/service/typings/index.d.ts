@@ -4,6 +4,9 @@ declare namespace NodeJS {
     TCB_ENVID: string
     SECRETID: string
     SECRETKEY: string
+    TCB_CMS: string
+    WX_MP: string
+    FROM_LOWCODE: string
   }
 }
 
@@ -42,7 +45,7 @@ interface UserRole {
 
 /**
  * 限制
- * 项目 Id 为 * 时，资源必然为 *
+ * 项目 ID 为 * 时，资源必然为 *
  * 服务为 * 时，资源必然为 *
  */
 interface Permission {

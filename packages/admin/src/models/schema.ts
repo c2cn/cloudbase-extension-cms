@@ -14,11 +14,12 @@ interface SchemaState {
   fieldAction: 'create' | 'edit'
   // 选择编辑的字段
   selectedField: {
-    type: string
-    name: string
-    icon: React.ReactNode
-    desc: string
+    type?: string
+    name?: string
+    icon?: React.ReactNode
+    desc?: string
   } & SchemaField
+  selectedFieldIndex: number
   // 删除字段弹窗
   deleteFieldVisible: boolean
   // 编辑字段弹窗
@@ -35,6 +36,7 @@ const state: SchemaState = {
   selectedField: {} as any,
   deleteFieldVisible: false,
   editFieldVisible: false,
+  selectedFieldIndex: -1,
 }
 
 export default {

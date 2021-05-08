@@ -14,7 +14,7 @@ import { IsNotEmpty, IsIn } from 'class-validator'
 import { PermissionGuard } from '@/guards'
 import { Collection } from '@/constants'
 import { UnsupportedOperation } from '@/common'
-import { checkAccessAndGetResource, logger } from '@/utils'
+import { checkAccessAndGetResource } from '@/utils'
 import { CloudBaseService, SchemaCacheService } from '@/services'
 import { ContentsService } from './contents.service'
 import { WebhooksService } from '../webhooks/webhooks.service'
@@ -168,10 +168,11 @@ export class ContentsController {
         resource,
         action,
         actionRes: res,
+        user: req.cmsUser,
         actionOptions: options,
       })
     } catch (error) {
-      logger.error(error, 'Webhook 触发失败')
+      console.error('Webhook 触发失败', error)
     }
 
     return res
@@ -194,6 +195,10 @@ export class ContentsController {
 
     // 获取并缓存 schema
     const schema = await this.schemaCacheService.getCollectionSchema(resource)
+
+    if (!schema) {
+      return
+    }
 
     // CMS 只能操作 CMS 管理的集合，不能操作非 CMS 管理的集合
     if (!schema) {

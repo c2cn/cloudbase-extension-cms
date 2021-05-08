@@ -1,6 +1,5 @@
 import helmet from 'helmet'
 import express from 'express'
-import bodyParser from 'body-parser'
 import { NestFactory } from '@nestjs/core'
 import { ValidationPipe } from '@nestjs/common'
 import { NestExpressApplication, ExpressAdapter } from '@nestjs/platform-express'
@@ -15,7 +14,7 @@ import { ContextInterceptor } from './interceptors/context.interceptor'
 
 import { AllExceptionsFilter } from './exceptions.filter'
 import config from './config'
-import { isRunInServerMode, logger } from './utils'
+import { isRunInServerMode } from './utils'
 
 const expressApp = express()
 const adapter = new ExpressAdapter(expressApp)
@@ -35,9 +34,6 @@ export async function bootstrap() {
   // 登录校验
   app.useGlobalGuards(new GlobalAuthGuard())
   app.useGlobalGuards(new GlobalRoleGuard())
-
-  // 请求 body 大小限制
-  app.use(bodyParser.raw({ limit: '50mb' }))
 
   // 耗时
   app.useGlobalInterceptors(new TimeCost())
@@ -78,6 +74,6 @@ export async function bootstrap() {
 
 if (isRunInServerMode()) {
   bootstrap().then(() => {
-    logger.info(` 🚀 App listen on http://localhost:${port}`)
+    console.info(` 🚀 App listen on http://localhost:${port}`)
   })
 }

@@ -6,9 +6,9 @@ import { getCmsConfig, getPageQuery, loginWithPassword } from '@/utils'
 import Footer from '@/components/Footer'
 import { LoginParamsType } from '@/services/login'
 import styles from './index.less'
-import FormItem from 'antd/lib/form/FormItem'
 
 const { Title } = Typography
+const FormItem = Form.Item
 
 const LoginMessage: React.FC<{
   content: string
@@ -117,7 +117,7 @@ const Login: React.FC<{}> = () => {
         window?.parent.postMessage(
           JSON.stringify({
             from: 'cms',
-            status: 'success',
+            message: 'received message',
           }),
           '*'
         )
@@ -176,7 +176,7 @@ const Login: React.FC<{}> = () => {
                   handleSubmit(values)
                 }}
               >
-                <Title level={4} className="text-center mt-10 mb-6 text-primary">
+                <Title level={4} className="text-center mt-10 mb-6">
                   账户密码登录
                 </Title>
                 {loginErrorMessage && !submitting && <LoginMessage content={loginErrorMessage} />}

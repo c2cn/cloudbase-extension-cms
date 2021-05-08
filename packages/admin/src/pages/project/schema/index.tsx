@@ -1,16 +1,17 @@
-import { useParams } from 'umi'
 import React, { useState, useEffect } from 'react'
 import { useConcent } from 'concent'
 import ProCard from '@ant-design/pro-card'
 import { Layout, Button, Space } from 'antd'
 import { ExportOutlined, ImportOutlined, PlusOutlined } from '@ant-design/icons'
 import { PageContainer } from '@ant-design/pro-layout'
+import { getProjectId } from '@/utils'
 import { SchmeaCtx } from 'typings/store'
 
-import { SchemaExportModal, SchemaImportModal } from './components'
+import { SchemaExportModal, SchemaImportModal } from './SchemaShare'
 import SchemaContent from './SchmeaContent'
 import SchemaMenuList from './SchemaMenuList'
 import SchemaEditor from './SchemaEditor'
+import SchemaFieldPicker from './SchemaFieldPicker'
 import './index.less'
 
 export interface TableListItem {
@@ -24,7 +25,7 @@ export interface TableListItem {
 }
 
 export default (): React.ReactNode => {
-  const { projectId } = useParams<any>()
+  const projectId = getProjectId()
   const ctx = useConcent<{}, SchmeaCtx>('schema')
 
   // 模型导入导出
@@ -70,6 +71,9 @@ export default (): React.ReactNode => {
         <Layout className="schema-layout">
           <SchemaContent />
         </Layout>
+
+        {/* 右侧字段类型列表 */}
+        <SchemaFieldPicker />
       </ProCard>
 
       {/* 编辑弹窗 */}

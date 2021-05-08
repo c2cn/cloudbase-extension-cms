@@ -1,25 +1,35 @@
 import React from 'react'
-import { useParams, useRequest, history } from 'umi'
 import { useConcent } from 'concent'
-import { Form, message, Space, Button, Row, Col, Input } from 'antd'
-import { createContent, setContent } from '@/services/content'
+import { useParams, useRequest, history } from 'umi'
+import { Form, message, Space, Button, Row, Col, Input, Typography } from 'antd'
+import { createContent, updateContent } from '@/services/content'
 import { getFieldFormItem } from '@/components/Fields'
 import ProCard from '@ant-design/pro-card'
 import { PageContainer } from '@ant-design/pro-layout'
 import { LeftCircleTwoTone } from '@ant-design/icons'
+import {
+  getDocInitialValues,
+  getDocChangedValues,
+  getProjectId,
+  getSchemaCustomFields,
+} from '@/utils'
+
+const { Text } = Typography
 
 const ContentEditor: React.FC = () => {
-  const { schemaId, projectId } = useParams<any>()
+  const projectId = getProjectId()
+  const { schemaId } = useParams<UrlParams>()
   const ctx = useConcent('content')
   const { selectedContent, contentAction } = ctx.state
   const {
-    state: { schemas },
+    state: { schemas, currentSchema },
   } = ctx
 
-  const schema: Schema = schemas?.find((item: Schema) => item._id === schemaId)
+  // 文档模型
+  const schema: Schema = schemas?.find((item: Schema) => item._id === schemaId) || currentSchema
 
   // 表单初始值
-  const initialValues = getInitialValues(contentAction, schema, selectedContent)
+  const initialValues = getDocInitialValues(contentAction, schema, selectedContent)
 
   // 创建/更新内容
   const { run, loading } = useRequest(
@@ -29,7 +39,9 @@ const ContentEditor: React.FC = () => {
       }
 
       if (contentAction === 'edit') {
-        await setContent(projectId, schema?.collectionName, selectedContent._id, payload)
+        // 只更新变更过的字段
+        const updatedData = getDocChangedValues(initialValues, payload)
+        await updateContent(projectId, schema?.collectionName, selectedContent._id, updatedData)
       }
     },
     {
@@ -70,14 +82,12 @@ const ContentEditor: React.FC = () => {
               onFinish={(v = {}) => run(v)}
             >
               {contentAction === 'edit' && (
-                <Form.Item label="文档 Id" name="_id">
+                <Form.Item label={<Text strong>文档 Id</Text>} name="_id">
                   <Input type="text" disabled />
                 </Form.Item>
               )}
 
-              {schema?.fields
-                ?.filter((_) => !_.isSystem)
-                .map((filed, index) => getFieldFormItem(filed, index))}
+              {getSchemaCustomFields(schema).map((filed, index) => getFieldFormItem(filed, index))}
 
               <Form.Item>
                 <Row>
@@ -103,42 +113,6 @@ const ContentEditor: React.FC = () => {
       </Row>
     </PageContainer>
   )
-}
-
-const getInitialValues = (action: string, schema: Schema, selectedContent: any) => {
-  const initialValues =
-    action === 'create'
-      ? schema?.fields?.reduce((prev, field) => {
-          let { type, defaultValue } = field
-          // 布尔值默认为 false
-          if (type === 'Boolean' && typeof defaultValue !== 'boolean') {
-            defaultValue = false
-          }
-          return {
-            ...prev,
-            [field.name]: defaultValue,
-          }
-        }, {})
-      : selectedContent
-
-  if (action === 'edit') {
-    schema?.fields?.forEach((field) => {
-      let { type, name, isMultiple } = field
-
-      const fieldValue = selectedContent[name]
-
-      // 布尔值默认为 false
-      if (type === 'Boolean' && typeof fieldValue !== 'boolean') {
-        selectedContent[name] = false
-      }
-
-      // 如果字段是 multiple 类型，将异常的字符串值，转换为正常的数组
-      if (isMultiple && typeof fieldValue === 'string') {
-        selectedContent[name] = [fieldValue]
-      }
-    })
-  }
-  return initialValues
 }
 
 export default ContentEditor

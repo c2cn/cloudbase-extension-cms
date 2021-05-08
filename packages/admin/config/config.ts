@@ -17,9 +17,6 @@ const config: IConfig = {
   // 是否让生成的文件包含 hash 后缀
   hash: true,
   antd: {},
-  alias: {
-    '@lang': '@/locales',
-  },
   dva: {
     hmr: true,
   },
@@ -36,7 +33,7 @@ const config: IConfig = {
     baseSeparator: '-',
   },
   dynamicImport: {
-    loading: '@/components/PageLoading/index',
+    loading: '@/components/Loading/PageLoading',
   },
   targets: {
     ie: 11,
@@ -61,11 +58,18 @@ const config: IConfig = {
     require('postcss-import'),
     // eslint-disable-next-line
     require('tailwindcss'),
+    // eslint-disable-next-line
+    require('autoprefixer'),
   ],
   // 定义变量
   define: {
     ...platformConfig.define,
   },
+  // 微前端
+  qiankun: {
+    master: {} as any,
+  },
+  mountElementId: 'root',
 }
 
 // webpack chunk 合并
