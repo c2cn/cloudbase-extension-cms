@@ -16,13 +16,16 @@ import {
 } from '@ant-design/icons'
 import { useConcent } from 'concent'
 import { ContentCtx, GlobalCtx } from 'typings/store'
-import { getCmsConfig, getProjectId } from '@/utils'
+import { getProjectId } from '@/utils'
 import defaultSettings from '../../config/defaultSettings'
 
 // 设置图标颜色
 setTwoToneColor('#0052d9')
 
-const systemMenuData: MenuDataItem[] = [
+/**
+ * 系统默认菜单
+ */
+const defaultSystemMenuData: MenuDataItem[] = [
   {
     authority: 'isLogin',
     path: '/project/home',
@@ -57,23 +60,41 @@ const systemMenuData: MenuDataItem[] = [
   },
 ]
 
-// 微信侧才支持发送短信的功能
-if (WX_MP || window.TcbCmsConfig.isMpEnv) {
-  systemMenuData.splice(3, 0, {
-    authority: 'canContent',
-    path: '/project/operation',
-    name: '营销工具',
-    icon: <ShoppingTwoTone />,
-    children: [],
-  })
+/**
+ * 生成系统菜单配置
+ * 每次返回全新的数据，避免菜单对象之间互相影响
+ */
+const getSystemMenuInstance = () => {
+  // 复制原始数据
+  const systemMenuData = [...defaultSystemMenuData]
+  /**
+   * 微信侧才支持发送短信的功能
+   */
+  if (WX_MP || window.TcbCmsConfig.isMpEnv) {
+    systemMenuData.splice(3, 0, {
+      authority: 'canContent',
+      path: '/project/operation',
+      name: '营销工具',
+      icon: <ShoppingTwoTone />,
+      children: [],
+    })
+  }
+
+  // 浅拷贝
+  return systemMenuData.map((_) => ({
+    ..._,
+  }))
 }
 
+/**
+ * layout 配置
+ */
 const layoutProps: BasicLayoutProps = {
   theme: 'light',
   navTheme: 'light',
   headerHeight: 64,
   disableContentMargin: true,
-  logo: getCmsConfig('cmsLogo'),
+  logo: <HeaderTitle collapsed={true} />,
   rightContentRender: () => <RightContent />,
   headerTitleRender: (logo, title, { collapsed }) => <HeaderTitle collapsed={Boolean(collapsed)} />,
   // 面包屑渲染
@@ -81,7 +102,13 @@ const layoutProps: BasicLayoutProps = {
   ...defaultSettings,
 }
 
+/**
+ * layout 渲染
+ */
 const Layout: React.FC<any> = (props) => {
+  // 当前的项目 ID
+  const projectId = getProjectId()
+
   const access = useAccess()
   const { children, location } = props
   const [refresh, setRefresh] = useState({ n: 1 })
@@ -89,6 +116,9 @@ const Layout: React.FC<any> = (props) => {
   const globalCtx = useConcent<{}, GlobalCtx>('global')
   const { schemas, loading } = ctx.state
   const { setting = {} } = globalCtx.state
+
+  // 生成新的菜单对象，防止不同项目间的数据污染
+  const systemMenuData = getSystemMenuInstance()
 
   // 加载 schema 集合
   useEffect(() => {
@@ -101,7 +131,7 @@ const Layout: React.FC<any> = (props) => {
     }
 
     ctx.mr.getContentSchemas(projectId)
-  }, [])
+  }, [projectId])
 
   // 内容集合菜单
   const contentChildMenus = schemas?.map((schema: Schema) => ({
@@ -114,7 +144,7 @@ const Layout: React.FC<any> = (props) => {
     setRefresh({
       n: refresh.n + 1,
     })
-  }, [systemMenuData, loading, schemas, setting])
+  }, [projectId, loading, schemas, setting])
 
   // 添加菜单
   useEffect(() => {
@@ -152,19 +182,26 @@ const Layout: React.FC<any> = (props) => {
       menuDataRender={(menuData: MenuDataItem[]) => {
         systemMenuData[2].children = contentChildMenus
 
-        // 将自定义菜单添加到 Webhook 菜单前
+        // 添加自定义菜单
         const { customMenus } = setting
         if (customMenus?.length) {
+          const projectId = getProjectId()
+
           // 循环判断菜单是否存在，不存在则插入菜单
           // 保持菜单的原有顺序插入
           const baseInsertIndex = WX_MP || window.TcbCmsConfig.isMpEnv ? 6 : 5
-          customMenus.forEach((menu, index) => {
-            const isCustomMenusInsert = systemMenuData.find((_) => _?.key === menu.id)
-            if (!isCustomMenusInsert) {
-              const customMenuData = mapCustomMenuTree(menu)
-              systemMenuData.splice(baseInsertIndex + index, 0, customMenuData)
-            }
-          })
+
+          customMenus
+            .filter((menu) => {
+              return menu.applyProjects?.length ? menu.applyProjects.includes(projectId) : true
+            })
+            .forEach((menu, index) => {
+              const isCustomMenusInsert = systemMenuData.find((_) => _?.key === menu.id)
+              if (!isCustomMenusInsert) {
+                const customMenuData = mapCustomMenuTree(menu)
+                systemMenuData.splice(baseInsertIndex + index, 0, customMenuData)
+              }
+            })
         }
 
         return systemMenuData.filter((_) => access[_.authority as string])
@@ -179,15 +216,9 @@ const Layout: React.FC<any> = (props) => {
         // 链接菜单，外跳
         if (menuItemProps.isUrl) {
           return (
-            <Link
-              to={menuItemProps.itemPath}
-              target="_blank"
-              onClick={() => {
-                console.log('click')
-              }}
-            >
+            <a target="_blank" href={menuItemProps.itemPath}>
               {defaultDom}
-            </Link>
+            </a>
           )
         }
 
@@ -226,27 +257,27 @@ const Layout: React.FC<any> = (props) => {
  * 遍历菜单配置树，生成菜单树
  */
 const mapCustomMenuTree = (node: CustomMenuItem): any => {
-  if (!node.children?.length) {
-    return {
-      key: node.id,
-      authority: 'isLogin',
-      name: node.title,
-      path: node.microAppID ? `/project/microapp/${node.microAppID}` : node.link,
-      component: './project/microapp/index',
-      children: [],
-      icon: <AppstoreTwoTone />,
-    }
-  } else {
-    return {
-      key: node.id,
-      authority: 'isLogin',
-      name: node.title,
-      path: node.microAppID ? `/project/microapp/${node.microAppID}` : node.link,
-      component: './project/microapp/index',
-      children: node.children.map((_) => mapCustomMenuTree(_)),
-      icon: <AppstoreTwoTone />,
-    }
+  const projectId = getProjectId()
+
+  const menuData: any = {
+    key: node.id,
+    authority: 'isLogin',
+    name: node.title,
+    path: node.microAppID ? `/project/microapp/${node.microAppID}` : node.link,
+    component: './project/microapp/index',
+    children: [],
+    icon: <AppstoreTwoTone />,
   }
+
+  if (node.children?.length) {
+    menuData.children = node.children
+      .filter((menu) =>
+        menu.applyProjects?.length ? menu.applyProjects.includes(projectId) : true
+      )
+      .map((_) => mapCustomMenuTree(_))
+  }
+
+  return menuData
 }
 
 const contentLoading = ({

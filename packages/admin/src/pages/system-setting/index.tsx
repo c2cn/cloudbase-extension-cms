@@ -9,11 +9,11 @@ import RoleManagement from './RoleManagement'
 import MicroApp from './MicroApp'
 import CustomMenu from './CustomMenu'
 import SettingContainer from './SettingContainer'
+import ApiAccess from './ApiAccess'
 
 const { Title, Link } = Typography
 
 const DEFAULT_TAB = 'user'
-const Tabs = ['user', 'role', 'microapp', 'custommenu']
 
 const Container = styled(SettingContainer)`
   .ant-pro-card-body {
@@ -26,11 +26,12 @@ const TabMap = {
   role: <RoleManagement />,
   microapp: <MicroApp />,
   custommenu: <CustomMenu />,
+  api: <ApiAccess />,
 }
 
 export default (): React.ReactNode => {
   const tab = (history.location.query?.tab || '') as string
-  const targetTab = Tabs.includes(tab as string) ? tab : DEFAULT_TAB
+  const targetTab = Object.keys(TabMap).includes(tab as string) ? tab : DEFAULT_TAB
   const [selectedMenu, selectMenu] = useState<string>(targetTab)
 
   return (
@@ -66,11 +67,14 @@ export default (): React.ReactNode => {
           >
             <Menu.Item key="user">用户</Menu.Item>
             <Menu.Item key="role">角色</Menu.Item>
+            <Menu.Item key="api">API 访问</Menu.Item>
             <Menu.Item key="microapp">微应用</Menu.Item>
             <Menu.Item key="custommenu">自定义菜单</Menu.Item>
           </Menu>
         </ProCard>
-        <ProCard>{TabMap[selectedMenu]}</ProCard>
+        <ProCard bodyStyle={selectedMenu === 'api' ? { padding: '24px' } : {}}>
+          {TabMap[selectedMenu]}
+        </ProCard>
       </ProCard>
     </Container>
   )

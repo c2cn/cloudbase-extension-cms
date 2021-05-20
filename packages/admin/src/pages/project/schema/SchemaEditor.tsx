@@ -137,7 +137,6 @@ const SchemaEditor: React.FC = () => {
       title={`${actionTip}模型`}
     >
       <Form
-        name="basic"
         layout="vertical"
         labelAlign="left"
         initialValues={getInitialValues(schemaEditAction, currentSchema)}
@@ -159,20 +158,22 @@ const SchemaEditor: React.FC = () => {
         </Form.Item>
 
         <Form.Item
-          label="数据库名"
           name="collectionName"
-          help={
-            schemaEditAction === 'edit' && (
-              <Typography.Text type="danger">
-                更改数据库名会自动重命名原数据库（危险操作！仅管理员可操作！）
-              </Typography.Text>
-            )
+          label={
+            <>
+              数据库名
+              {schemaEditAction === 'edit' && (
+                <Typography.Text type="danger">
+                  【更改数据库名会自动重命名原数据库（危险操作！仅管理员可操作！）】
+                </Typography.Text>
+              )}
+            </>
           }
           rules={[
             { required: true, message: '请输入数据库名称！' },
             {
-              message: '字段名只能使用英文字母、数字、-、_ 等符号',
               pattern: /^[a-z0-9A-Z_-]+$/,
+              message: '只能使用英文字母、数字、-、_ 等符号',
             },
           ]}
         >
@@ -195,6 +196,13 @@ const SchemaEditor: React.FC = () => {
                 </Space>
               }
               name="docCreateTimeField"
+              rules={[
+                { required: true, message: '请输入创建时间字段名！' },
+                {
+                  message: '只能使用英文字母、数字、-、_ 等符号',
+                  pattern: /^[a-z0-9A-Z_-]+$/,
+                },
+              ]}
             >
               <Input placeholder="记录创建时间字段名" />
             </Form.Item>
@@ -208,6 +216,13 @@ const SchemaEditor: React.FC = () => {
                 </Space>
               }
               name="docUpdateTimeField"
+              rules={[
+                { required: true, message: '请输入创建时间字段名！' },
+                {
+                  message: '只能使用英文字母、数字、-、_ 等符号',
+                  pattern: /^[a-z0-9A-Z_-]+$/,
+                },
+              ]}
             >
               <Input placeholder="记录更新时间字段名" />
             </Form.Item>
